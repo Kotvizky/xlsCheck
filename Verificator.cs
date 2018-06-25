@@ -12,28 +12,58 @@ namespace Check
     class Verifier
     {
 
-        public Verifier(string jsonShema, DataTable t1, DataTable t2)
+        public Verifier(string jsonShema, ITable iTable)
         {
-            T1 = t1;
-            T2 = t2;
             var serializer = new JavaScriptSerializer();
             schema = serializer.DeserializeObject(jsonShema);
 
-            if ((schema  is Dictionary<string,object>) && (schema as Dictionary<string, object>).ContainsKey(COMPARE))
+
+            ICheckTable = iTable;
+            ICheckTable.Open(schema[JOIN]);
+
+            if ((schema is Dictionary<string, object>) && (schema as Dictionary<string, object>).ContainsKey(COMPARE))
             {
                 compere(schema[COMPARE]);
+            }
+
+        }
+
+        ITable ICheckTable;
+
+        public DataTable CheckTable
+        {
+            get
+            {
+                return ICheckTable.table;
             }
         }
 
         const string COMPARE = "compare";
-        const int FIRST_ROW = 2;
+        const string JOIN = "join";
 
         dynamic schema;
-        DataTable T1;
-        DataTable T2;
 
         public List<string> report { get; private set; } = new List<string>();
 
+        void compere(object[] fieldsList)
+        {
+            report.Clear();
+            foreach (object[] pair in fieldsList)
+            {
+                string ruleName = "";
+                foreach (string name in pair)
+                {
+                    ruleName += $"{name};";
+                }
+                report.Add(ruleName);
+                string[] result = ICheckTable.Select(pair);
+                report.AddRange(result);
+                report.Add("----------");
+            }
+        }
+                
+
+        /*
         void compere(object[] fieldsList)
         {
             report.Clear();
@@ -89,7 +119,7 @@ namespace Check
             }
 
         }
-
+        */
 
 
     }

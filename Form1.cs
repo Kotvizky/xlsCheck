@@ -26,8 +26,6 @@ namespace Check
                 return;
             }
             string xlsFile = $@"{Path.GetDirectoryName(args[0])}\{args[1]}";
-            //checkFile(xlsFile);
-
 
         }
 
@@ -46,29 +44,77 @@ namespace Check
 
         void checkFile(string xlsFile)
         {
-            tables = new ReadXls(xlsFile);
             string jsonFile = $@"{Path.GetDirectoryName(xlsFile)}\{Path.GetFileNameWithoutExtension(xlsFile)}.json";
 
-            dataGridView1.DataSource = tables.t1;
-            return;
-
-            if (File.Exists(jsonFile))
-            {
-                textBox1.Clear();
-                textBox1.Text = $"\t{xlsFile} "
-                    + "\r\n=============\r\n";
-                string jsonArray = File.ReadAllText(jsonFile);
-
-                dataGridView1.DataSource = tables.t1;
-
-                    //Verifier verifier = new Verifier(jsonArray, tables.t1, tables.t2);
-                    //textBox1.Text += "\r\n" + String.Join("\r\n", verifier.report.ToArray());
-            }
-            else
+            if (!File.Exists(jsonFile))
             {
                 MessageBox.Show($"File not found : {jsonFile}");
             }
+
+            if (!File.Exists(xlsFile))
+            {
+                MessageBox.Show($"File not found : {xlsFile}");
+            }
+
+            tables = new ReadXls(xlsFile);
+            string jsonArray = File.ReadAllText(jsonFile);
+            Verifier verifier = new Verifier(jsonArray, tables);
+            dgvTableXls.DataSource = verifier.CheckTable;
+
+            textBox1.Text += "\r\n" + String.Join("\r\n", verifier.report.ToArray());
+
+            textBox1.Clear();
+            textBox1.Text = $"\t{xlsFile} "
+                + "\r\n=============\r\n";
+
+            textBox1.Text += String.Join("\r\n", verifier.report.ToArray());
+            dgvTableXls.DataSource = tables.t1;
+
         }
 
+        private void textBox2_TextChanged(object sender, EventArgs e)
+        {
+            if (dgvTableXls.DataSource == null) return;
+            dgvTableXls_changeColumns(txtColumnFilter.Text);
+        }
+
+        private void dgvTableXls_changeColumns(string filter)
+        {
+            if (filter == String.Empty)
+            {
+                foreach (DataGridViewColumn col in dgvTableXls.Columns)
+                {
+                    col.Visible = true;
+                }
+            }
+            else
+            {
+                foreach (DataGridViewColumn col in dgvTableXls.Columns)
+                {
+                    bool res = false;
+                    foreach (string str in filter.Split(';'))
+                    {
+                        if (str.Trim()=="")
+                        {
+                            break;
+                        }
+                        if (col.Name.ToLower().Contains(str.ToLower()))
+                        {
+                            res = true;
+                            break;
+                        }
+                    }
+
+                    if (res)
+                    {
+                        col.Visible = true;
+                    }
+                    else
+                    {
+                        col.Visible = false;
+                    }
+                }
+            }
+        }
     }
 }

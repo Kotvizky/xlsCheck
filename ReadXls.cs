@@ -9,14 +9,19 @@ using System.IO;
 
 namespace Check
 {
-    class ReadXls
+    class ReadXls : ITable
     {
 
         public ReadXls (string _filename)
         {
             fileName = _filename;
-            if (File.Exists(fileName)) {
-                ReadExcelFile();
+        }
+
+        public DataTable table
+        {
+            get
+            {
+                return t1;
             }
         }
 
@@ -47,7 +52,7 @@ namespace Check
             return sb.ToString();
         }
 
-        private void ReadExcelFile()
+        public void Open(object[] join)
         {
             string connectionString = GetConnectionString();
             using (OleDbConnection conn = new OleDbConnection(connectionString))
@@ -60,26 +65,16 @@ namespace Check
                 DataRow[] sheetRows = dtSheet.Select($"TABLE_NAME  in ('{T1NAME}','{T2NAME}')");
                 if (sheetRows.Length == 2)
                 {
-                    //t1 = GetTableFomFile(cmd, T1NAME);
                     t1 = GetTableFomFile(cmd, T1NAME,
-                    $@"SELECT * FROM [{ T1NAME}] t1 left join [{ T2NAME}] t2 on (t1.[№ договора] = t2.[договор2])");
-                    //$@"SELECT r1 FROM [{ T1NAME}] t1 ");
-                    t2 = GetTableFomFile(cmd, T2NAME);
+                        $@"SELECT *
+                        FROM [{ T1NAME}] t1 left join [{ T2NAME}] t2 
+                            on (t1.[{join[0].ToString()}] = t2.[{join[1].ToString()}])"
+                        );
                     Exists = true;
                 }
                 cmd = null;
                 conn.Close();
             }
-        }
-
-        DataTable GetTableFomFile(OleDbCommand cmd,string sheetName)
-        {
-            cmd.CommandText = "SELECT * FROM [" + sheetName + "] ";
-            DataTable XlsTable = new DataTable();
-            XlsTable.TableName = sheetName;
-            OleDbDataAdapter da = new OleDbDataAdapter(cmd);
-            da.Fill(XlsTable);
-            return XlsTable;
         }
 
         DataTable GetTableFomFile(OleDbCommand cmd, string sheetName, string Sql)
@@ -92,6 +87,36 @@ namespace Check
             return XlsTable;
         }
 
+
+        public string[] Select(string filter, object[] fields = null)
+        {
+            DataRow[] rows = t1.Select(filter,"");
+            int[] rowsId = new int[rows.Count()];
+            for (int i = 0; i < rows.Count(); i++)
+            {
+                rowsId[i] = t1.Rows.IndexOf(rows[i]);
+            }
+            Array.Sort(rowsId);
+            string[] result = new string[rows.Count()];
+            for (int i = 0; i < rowsId.Count(); i++)
+            {
+                result[i] = $"{rowsId[i]} "; 
+                if (fields != null)
+                {
+                    foreach (object field in fields)
+                    {
+                        result[i] += $"\t|\t{t1.Rows[rowsId[i]][field.ToString()]}";
+                    }
+                }
+            }
+            return result;
+        }
+
+        public string[] Select(object[] filter, object[] fields = null)
+        {
+            string strFilter = $"[{filter[0].ToString()}] <> [{filter[1].ToString()}] or [{filter[1].ToString()}]  is NULL ";
+            return Select(strFilter, filter);
+        }
 
 
     }

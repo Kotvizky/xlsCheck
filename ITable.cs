@@ -9,6 +9,10 @@ namespace Check
 {
     interface ITable
     {
-        DataTable table { get; set; }
+        DataTable table { get; }
+        void Open( object[] join);
+        string[] Select(object[] filter, object[] fields = null);
+        string[] Select(string filter, object[] fields = null);
+
     }
 }
