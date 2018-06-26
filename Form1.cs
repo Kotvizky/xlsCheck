@@ -68,7 +68,10 @@ namespace Check
                 + "\r\n=============\r\n";
 
             textBox1.Text += String.Join("\r\n", verifier.report.ToArray());
-            dgvTableXls.DataSource = tables.t1;
+
+            BindingSource SBind = new BindingSource();
+            SBind.DataSource = tables.t1; ;
+            dgvTableXls.DataSource = SBind;
 
         }
 
@@ -114,6 +117,36 @@ namespace Check
                         col.Visible = false;
                     }
                 }
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            if (dgvTableXls.DataSource == null) return;
+            try
+            {
+                (dgvTableXls.DataSource as BindingSource).Filter = txtResFilter.Text;
+            }
+            catch (Exception ex)
+            {
+                if (ex is EvaluateException || ex is EvaluateException)
+                {
+                    //(dgvTableXls.DataSource as BindingSource).Filter = txtResApply.Text;
+                    MessageBox.Show(ex.Message);
+                }
+                else throw;
+            }
+
+        }
+
+        private void dgvTableXls_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            if ((((DataGridView)sender).Name == "dgvTableXls")
+                & (e.Button == MouseButtons.Right))
+            {
+                string name = dgvTableXls.Columns[e.ColumnIndex].Name;
+                Clipboard.SetText(name);
+                MessageBox.Show(String.Format("String \'{0}\' has been copied to clipboard", name));
             }
         }
     }

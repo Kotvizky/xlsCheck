@@ -90,6 +90,9 @@ namespace Check
 
         public string[] Select(string filter, object[] fields = null)
         {
+            try
+            {
+
             DataRow[] rows = t1.Select(filter,"");
             int[] rowsId = new int[rows.Count()];
             for (int i = 0; i < rows.Count(); i++)
@@ -110,12 +113,22 @@ namespace Check
                 }
             }
             return result;
+            }
+            catch (Exception e )
+            {
+                if ((e is EvaluateException) || (e is ArgumentException))
+                {
+                    return new string[] { e.Message};
+                }
+                throw;
+            }
+
         }
 
         public string[] Select(object[] filter, object[] fields = null)
         {
             string strFilter = $"[{filter[0].ToString()}] <> [{filter[1].ToString()}] or [{filter[1].ToString()}]  is NULL ";
-            return Select(strFilter, filter);
+            return Select(strFilter, (fields != null) ? fields : filter);
         }
 
 

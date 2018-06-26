@@ -26,6 +26,12 @@ namespace Check
                 compere(schema[COMPARE]);
             }
 
+            if ((schema is Dictionary<string, object>) && (schema as Dictionary<string, object>).ContainsKey(SELECT))
+            {
+                select(schema[SELECT]);
+            }
+
+
         }
 
         ITable ICheckTable;
@@ -40,6 +46,7 @@ namespace Check
 
         const string COMPARE = "compare";
         const string JOIN = "join";
+        const string SELECT = "select";
 
         dynamic schema;
 
@@ -47,80 +54,88 @@ namespace Check
 
         void compere(object[] fieldsList)
         {
-            report.Clear();
-            foreach (object[] pair in fieldsList)
+            int descPosition = 2;
+            for (int i = 0; i < fieldsList.Count(); i++)
             {
-                string ruleName = "";
-                foreach (string name in pair)
+
+                dynamic pair = fieldsList[i];
+
+                if (IsNotArray(i, pair) || IsNotEnoughParam(i, descPosition, pair))
                 {
-                    ruleName += $"{name};";
+                    continue;
                 }
+
+                string ruleName = $"\r\n[{COMPARE}]:\r\n{pair[0].ToString()};{pair[1].ToString()}";
                 report.Add(ruleName);
-                string[] result = ICheckTable.Select(pair);
+                bool existReportFields = addFieldsToReport(pair, descPosition);
+                string[] result = ICheckTable.Select(
+                    new object[] { pair[0], pair[1] },
+                    existReportFields ? pair[descPosition] : null
+                    );
                 report.AddRange(result);
                 report.Add("----------");
             }
         }
-                
 
-        /*
-        void compere(object[] fieldsList)
+        void select(object[] fieldsList)
         {
-            report.Clear();
-            int pairNumber = 0;
-            foreach (object[] pair in fieldsList)
+            for (int i = 0; i < fieldsList.Count(); i++)
             {
-                if (pair.Length == 2 )
+
+                dynamic pair = fieldsList[i];
+
+                if (IsNotArray(i, pair) || IsNotEnoughParam(i, 1, pair))
                 {
-                    string columnName1 = pair[0].ToString();
-                    string columnName2 = pair[1].ToString();
-                    report.Add($"Pair: [{columnName1} -- {columnName2}]");
-                    bool errors = false;
-                    if (T1.Columns.Contains(columnName1) && T2.Columns.Contains(columnName2))
-                    {
-                        for (int rowNumber = 0; rowNumber < T1.Rows.Count; rowNumber++)
-                        {
-                            int xlsRow = rowNumber + FIRST_ROW;
-                            if (T2.Rows.Count > rowNumber)
-                            {
-                                if (!T1.Rows[rowNumber][columnName1].Equals(T2.Rows[rowNumber][columnName2]))
-                                {
-                                    report.Add($"\tLine {xlsRow}: {T1.Rows[rowNumber][columnName1]} != {T2.Rows[rowNumber][columnName2].ToString()}");
-                                    errors = true;
-                                }
-                            }
-                            else
-                            {
-                                report.Add($"\tLine {xlsRow} not found");
-                                errors = true;
-                                break;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        report.Add($"\tCan't found pair ({columnName1} -- {columnName2})");
-                    }
-                    if (errors)
-                    {
-                        report.Add("\r\n");
-                    }
-                    else
-                    {
-                        report.Add("\tOK!\r\n");
-                    }
+                    continue;
                 }
-                else
-                {
-                    string pairName = (pair.Length == 0) ? $"{1}..." :$"{pairNumber}.{pair[0].ToString()}" ;
-                    report.Add($"Incorrect pair ({pairName})");
-                }
-                pairNumber++;
+
+                report.Add($"\r\n[{SELECT}]:\r\n{pair[0].ToString()}");
+
+                bool existReportFields = addFieldsToReport(pair, 1);
+
+                string[] result = ICheckTable.Select(
+                    pair[0],
+                    existReportFields ? pair[1] : null
+                    );
+                report.AddRange(result);
+                report.Add("----------");
+            }
+        }
+
+        bool addFieldsToReport(dynamic rules, int position)
+        {
+            bool result = ((rules as object[]).Count() > position  )
+                    && (rules[position] is object[]);
+
+            if (result)
+            {
+                string[] strFields = (rules[position] as object[]).Select(x => x.ToString()).ToArray();
+                report.Add(String.Join(";", strFields));
             }
 
+            return result;
         }
-        */
 
+
+        private bool IsNotEnoughParam(int i, int paramNumber, dynamic pair)
+        {
+            bool result = (pair as object[]).Count() < paramNumber;
+            if (result)
+            {
+                report.Add($"\r\n!{i + 1} - not enough parameters");
+            }
+            return result;
+        }
+
+        private bool IsNotArray(int i, dynamic pair)
+        {
+            bool result = !(pair is object[]);
+            if (result)
+            {
+                report.Add($"\r\n!{i + 1} - not array of field");
+            }
+            return result;
+        }
 
     }
 }
