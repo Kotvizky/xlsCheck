@@ -72,6 +72,13 @@ namespace Check
                         );
                     Exists = true;
                 }
+                else if (sheetRows.Length == 1 )
+                {
+                    t1 = GetTableFomFile(cmd, T1NAME,
+                        $@"SELECT *  FROM [{T1NAME}] "
+                        );
+                    Exists = true;
+                }
                 cmd = null;
                 conn.Close();
             }

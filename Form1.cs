@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
+using System.Web.Script.Serialization;
 
 namespace Check
 {
@@ -27,6 +28,8 @@ namespace Check
             }
             string xlsFile = $@"{Path.GetDirectoryName(args[0])}\{args[1]}";
 
+            checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН.tel.xlsx");
+
         }
 
         private void fileToolStripMenuItem_Click(object sender, EventArgs e)
@@ -44,7 +47,15 @@ namespace Check
 
         void checkFile(string xlsFile)
         {
-            string jsonFile = $@"{Path.GetDirectoryName(xlsFile)}\{Path.GetFileNameWithoutExtension(xlsFile)}.json";
+
+            string jsonShortName = Path.GetFileNameWithoutExtension(xlsFile);
+
+            if (jsonShortName.LastIndexOf('.') > 0 )
+            {
+                jsonShortName = jsonShortName.Remove(0, jsonShortName.LastIndexOf('.') + 1);
+            }
+
+            string jsonFile = $@"{Path.GetDirectoryName(xlsFile)}\{jsonShortName}.json";
 
             if (!File.Exists(jsonFile))
             {
@@ -55,10 +66,23 @@ namespace Check
             {
                 MessageBox.Show($"File not found : {xlsFile}");
             }
+            string jsonArray = File.ReadAllText(jsonFile);
+
+            var serializer = new JavaScriptSerializer();
+            dynamic schema;
+            try
+            {
+                schema = serializer.DeserializeObject(jsonArray);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message,"Open Json");
+                return;
+            }
 
             tables = new ReadXls(xlsFile);
-            string jsonArray = File.ReadAllText(jsonFile);
-            Verifier verifier = new Verifier(jsonArray, tables);
+
+            Verifier verifier = new Verifier(schema, tables);
             dgvTableXls.DataSource = verifier.CheckTable;
 
             textBox1.Text += "\r\n" + String.Join("\r\n", verifier.report.ToArray());
@@ -69,8 +93,12 @@ namespace Check
 
             textBox1.Text += String.Join("\r\n", verifier.report.ToArray());
 
+            //// ==>
+            //tables.t1.WriteXml($@"{Path.GetDirectoryName(xlsFile)}\mytable.xml", XmlWriteMode.IgnoreSchema);
+            ////===<
+
             BindingSource SBind = new BindingSource();
-            SBind.DataSource = tables.t1; ;
+            SBind.DataSource = tables.t1; 
             dgvTableXls.DataSource = SBind;
 
         }
@@ -131,7 +159,6 @@ namespace Check
             {
                 if (ex is EvaluateException || ex is EvaluateException)
                 {
-                    //(dgvTableXls.DataSource as BindingSource).Filter = txtResApply.Text;
                     MessageBox.Show(ex.Message);
                 }
                 else throw;

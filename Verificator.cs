@@ -12,26 +12,39 @@ namespace Check
     class Verifier
     {
 
-        public Verifier(string jsonShema, ITable iTable)
+        public Verifier(dynamic _schema, ITable iTable)
         {
-            var serializer = new JavaScriptSerializer();
-            schema = serializer.DeserializeObject(jsonShema);
+            schema = _schema;
 
+             ICheckTable = iTable;
+//            ICheckTable.Open(schema[JOIN]);
 
-            ICheckTable = iTable;
-            ICheckTable.Open(schema[JOIN]);
-
-            if ((schema is Dictionary<string, object>) && (schema as Dictionary<string, object>).ContainsKey(COMPARE))
+            if (runMethod(JOIN, ICheckTable.Open))
             {
-                compere(schema[COMPARE]);
+                runMethod(COMPARE, compere);
+                runMethod(SELECT, select);
             }
 
-            if ((schema is Dictionary<string, object>) && (schema as Dictionary<string, object>).ContainsKey(SELECT))
+            if (runMethod(OPEN, ICheckTable.Open))
             {
-                select(schema[SELECT]);
+                runMethod(PHONE,phone);
             }
+        }
 
+        delegate void method(object[] fieldsList);
 
+        bool runMethod(string name, method method)
+        {
+
+            if ((schema is Dictionary<string, object>) && (schema as Dictionary<string, object>).ContainsKey(name))
+            {
+                method(schema[name]);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         ITable ICheckTable;
@@ -46,7 +59,9 @@ namespace Check
 
         const string COMPARE = "compare";
         const string JOIN = "join";
+        const string OPEN = "open";
         const string SELECT = "select";
+        const string PHONE = "phone";
 
         dynamic schema;
 
@@ -102,17 +117,60 @@ namespace Check
             }
         }
 
+        void phone(object[] phoneObjects)
+        {
+            foreach (dynamic jsonObj in phoneObjects)
+            {
+                try
+                {
+                    dynamic phoneParam = ((Dictionary<string, object>)jsonObj)["split"];
+
+                    string[] fieldsJson = Array.ConvertAll<object, string>((phoneParam["fields"] as object[]), x => x.ToString());
+
+                    List<string> correctFields = new List<string>();
+                    foreach (DataColumn column in ICheckTable.table.Columns)
+                    {
+                        if (fieldsJson.Contains(column.ColumnName))
+                        {
+                            correctFields.Add(column.ColumnName);
+                        }
+                    }
+                    if (correctFields.Count == 0)
+                    {
+                        return;
+                    }
+
+                    Phone.fields = correctFields.ToArray<string>();
+
+                    Phone.separator = Array.ConvertAll<object, char>((phoneParam["symbols"] as object[]), x => Convert.ToChar(x));
+                    foreach (DataRow row in ICheckTable.table.Rows)
+                    {
+                        Phone.currentRow = row;
+                        Phone.splitPhones();
+                        if (Phone.report != String.Empty)
+                        {
+                            report.Add(Phone.report);
+                        }
+                    }
+                    break;
+                }
+                catch (Exception e)
+                {
+                }
+
+            }
+
+        }
+
         bool addFieldsToReport(dynamic rules, int position)
         {
             bool result = ((rules as object[]).Count() > position  )
                     && (rules[position] is object[]);
-
             if (result)
             {
                 string[] strFields = (rules[position] as object[]).Select(x => x.ToString()).ToArray();
                 report.Add(String.Join(";", strFields));
             }
-
             return result;
         }
 
