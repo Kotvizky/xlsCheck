@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
 using System.Web.Script.Serialization;
+using Check.Properties;
 
 namespace Check
 {
@@ -28,7 +29,8 @@ namespace Check
             }
             string xlsFile = $@"{Path.GetDirectoryName(args[0])}\{args[1]}";
 
-            checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН.tel.xlsx");
+            checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН-1.tel.xlsx");
+            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН.tel.xlsx");
 
         }
 
@@ -175,6 +177,40 @@ namespace Check
                 Clipboard.SetText(name);
                 MessageBox.Show(String.Format("String \'{0}\' has been copied to clipboard", name));
             }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            // Set window location
+            if (Settings.Default.mainFormLoaction != null)
+            {
+                this.Location= Settings.Default.mainFormLoaction;
+            }
+
+            // Set window size
+            if (Settings.Default.mainFormSize != null)
+            {
+                this.Size = Settings.Default.mainFormSize;
+            }
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            // Copy window location to app settings
+            Settings.Default.mainFormLoaction = this.Location;
+
+            // Copy window size to app settings
+            if (this.WindowState == FormWindowState.Normal)
+            {
+                Settings.Default.mainFormSize = this.Size;
+            }
+            else
+            {
+                Settings.Default.mainFormSize = this.RestoreBounds.Size;
+            }
+
+            // Save settings
+            Settings.Default.Save();
         }
     }
 }

@@ -27,7 +27,8 @@ namespace Check
 
             if (runMethod(OPEN, ICheckTable.Open))
             {
-                runMethod(PHONE,phone);
+                runMethod(PHONE, phone);
+                runMethod(REDEX, redex);
             }
         }
 
@@ -62,6 +63,7 @@ namespace Check
         const string OPEN = "open";
         const string SELECT = "select";
         const string PHONE = "phone";
+        const string REDEX = "regex";
 
         dynamic schema;
 
@@ -127,30 +129,36 @@ namespace Check
 
                     string[] fieldsJson = Array.ConvertAll<object, string>((phoneParam["fields"] as object[]), x => x.ToString());
 
-                    List<string> correctFields = new List<string>();
-                    foreach (DataColumn column in ICheckTable.table.Columns)
+                    try
                     {
-                        if (fieldsJson.Contains(column.ColumnName))
-                        {
-                            correctFields.Add(column.ColumnName);
-                        }
-                    }
-                    if (correctFields.Count == 0)
-                    {
-                        return;
-                    }
 
-                    Phone.fields = correctFields.ToArray<string>();
-
-                    Phone.separator = Array.ConvertAll<object, char>((phoneParam["symbols"] as object[]), x => Convert.ToChar(x));
-                    foreach (DataRow row in ICheckTable.table.Rows)
-                    {
-                        Phone.currentRow = row;
-                        Phone.splitPhones();
-                        if (Phone.report != String.Empty)
+                        System.Collections.Specialized.OrderedDictionary fields 
+                            = new System.Collections.Specialized.OrderedDictionary();
+                        foreach (DataColumn column in ICheckTable.table.Columns)
                         {
-                            report.Add(Phone.report);
+                            if (fieldsJson.Contains(column.ColumnName))
+                            {
+                                fields.Add(column.ColumnName,null);
+                            }
                         }
+                        if (fields.Count == 0)
+                        {
+                            return;
+                        }
+                        Phone.Fields = fields;
+                        Phone.separator = Array.ConvertAll<object, char>((phoneParam["symbols"] as object[]), x => Convert.ToChar(x));
+                        foreach (DataRow row in ICheckTable.table.Rows)
+                        {
+                            Phone.currentRow = row;
+                            Phone.splitPhones();
+                            if (Phone.report != String.Empty)
+                            {
+                                report.Add(Phone.report);
+                            }
+                        }
+                    } catch(Exception e)
+                    {
+                        report.Add($"{e} -- {e.Message}");
                     }
                     break;
                 }
@@ -160,6 +168,23 @@ namespace Check
 
             }
 
+        }
+
+        void redex(object[] regxObjects) {
+            try
+            {
+                foreach (dynamic jsonObj in regxObjects)
+                {
+                    object[] fields = (((Dictionary<string, object>)jsonObj)["fields"] as object[] );
+                    object[] rules = (((Dictionary<string, object>)jsonObj)["rules"] as object[]);
+                    string[] rulesStr = Array.ConvertAll<object, string>(rules, x => x.ToString());
+                    report.Add($"redex -- {string.Join(",", rules)}");
+                }
+            }
+            catch (Exception e)
+            {
+                report.Add(e.Message);
+            }
         }
 
         bool addFieldsToReport(dynamic rules, int position)
@@ -173,7 +198,6 @@ namespace Check
             }
             return result;
         }
-
 
         private bool IsNotEnoughParam(int i, int paramNumber, dynamic pair)
         {

@@ -5,6 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Data;
 using System.Text.RegularExpressions;
+using System.Collections.Specialized;
+using System.Collections;
+using System.Windows.Forms;
 
 namespace Check
 {
@@ -20,44 +23,155 @@ namespace Check
         }
         */
 
-        public static string[] fields;
+        static OrderedDictionary fields;
+
+        public static OrderedDictionary Fields
+        {
+            private get
+            {
+                return fields;
+            }
+            set
+            {
+                fields = value;
+                fieldsKey = new object[fields.Count];
+                fields.Keys.CopyTo(fieldsKey, 0);
+            }
+        }
+
+        static object[] fieldsKey;
 
         public static char[] separator;
 
         public static DataRow currentRow;
 
-        public static string report;
-
-
-        public static void splitPhones()
+        static void fillFields()
         {
-            report = String.Empty;
-            for (int i = fields.Length -1 ; i >= 0 ; i--)
+            foreach (object key in fieldsKey)
             {
-                if ((currentRow[fields[i]] != DBNull.Value ) && ( currentRow[fields[i]].ToString() != "" ))
+                object number = currentRow[key.ToString()];
+
+                if ((number == null) || (valueExist(number) != 0))
                 {
-                    List<string> correctPhones = getPhoneValues(i, currentRow[fields[i]].ToString());
-                    string correctPhonesString = String.Join(",",correctPhones.ToArray());
-                    report += $"[{currentRow[fields[i]].ToString()} -- {correctPhonesString}],";
-                    writeToRow(i,correctPhones);
+                    number = String.Empty;
+                }
+                fields[key] = number;
+            }
+        }
+        
+        static int valueExist(object value)
+        {
+            for (int i = 0; i < fields.Count; i++ )
+            {
+                if ((fields[i] != null) && (fields[i].Equals(value)))
+                {
+                    return i;
+                }
+            }
+            return 0;
+        }
+
+        static void removeDouble()
+        {
+            for(int i = fields.Count - 1; i >= 0; i--)
+            {
+                if (fields[i].Equals(String.Empty))
+                {
+                    continue;
+                }
+                int newPosition = valueExist(fields[i]);
+                if (newPosition < i)
+                {
+                    fields[i] = String.Empty;
                 }
             }
         }
 
-        static void writeToRow(int index, List<string> correctPhones)
+        static void fillRow()
+        {
+
+            for (int i = 0; i < fields.Count; i++)
+            {
+                fields[i] = correctNumber(fields[i].ToString());
+            }
+
+            removeDouble();
+
+            foreach (DictionaryEntry entry in fields)
+            {
+                string number = fields[entry.Key].ToString();
+
+                //fields.Cast<DictionaryEntry>().ElementAt(index)
+
+                try
+                {
+                    currentRow[entry.Key.ToString()] = number;
+                }
+                catch (Exception e)
+                {
+                    if (e is ArgumentException)
+                    {
+                        if (number == String.Empty)
+                        {
+                            currentRow[entry.Key.ToString()] = DBNull.Value;
+                        }
+                        else
+                        {
+                            currentRow[entry.Key.ToString()] = Convert.ToDecimal(number);
+                        }
+                    }
+                    else MessageBox.Show(e.Message);
+                }
+            }
+        }
+
+        public static string report;
+
+        public static void splitPhones()
+        {
+            fillFields();
+            report = String.Empty;
+            for (int i = fields.Count -1 ; i >= 0 ; i--)
+            {
+                if ( fields[i].ToString() != String.Empty )
+                {
+                    List<string> correctPhones = getPhoneValues(i, fields[i].ToString());
+                    string correctPhonesString = String.Join(",",correctPhones.ToArray());
+                    report += $"[{fields[i].ToString()} -- {correctPhonesString}],";
+                    writeFields(i,correctPhones);
+                }
+            }
+            fillRow();
+        }
+
+        static void writeFields(int index, List<string> correctPhones)
         {
             if (correctPhones.Count == 0)
             {
                 return;
             }
             int listIndex = 0;
-            for (int i = index; i < fields.Length - 1; i++)
+            string sourceNumber = fields[index].ToString();
+            for (int i = index; i < fields.Count ; i++)
             {
+                if((i > index) && (fields[i].ToString() != String.Empty))
+                {
+                    continue;
+                }
                 if (listIndex == correctPhones.Count)
                 {
                     return;
                 }
-                currentRow[fields[i]] = correctPhones[listIndex++];
+                fields[i] = correctPhones[listIndex++];
+            }
+            string extraNumberts = String.Empty;
+            while (listIndex < correctPhones.Count)
+            {
+                extraNumberts += $"{correctPhones[listIndex++]},";
+            }
+            if (extraNumberts != String.Empty)
+            {
+                report += $"[*del*{sourceNumber} -- {extraNumberts}]";
             }
         }
 
@@ -76,11 +190,36 @@ namespace Check
         {
             string number = new String(numbers.Where(Char.IsDigit).ToArray());
             //Regex.Match(numbers, @"\d+").Value;
-            if (number != "")
+            if (number != String.Empty)
             {
                 correctPhones.Add(number);
             }
         }
+
+        static string correctNumber(string number)
+        {
+
+            
+            if ( ( number == String.Empty ) ||  (number.Length < 9) && (number.Length > 12) )
+            {
+                return number;
+            }
+
+            if (number.Length == 10)
+            {
+                number = $"8{number}";
+            }
+            else if ((number.Length == 9))
+            {
+                number = $"80{number}";
+            }
+            else if ((number.Length == 12) && (number.Substring(0,3) == "380"))
+            {
+                number = number.Substring(1, 11);
+            }
+            return number;
+        }
+
 
     }
 
