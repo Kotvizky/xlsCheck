@@ -63,7 +63,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ITable.cs" />
-    <Compile Include="phone.cs" />
+    <Compile Include="Phone.cs" />
     <Compile Include="Verificator.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>

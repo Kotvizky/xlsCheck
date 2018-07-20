@@ -29,7 +29,9 @@ namespace Check
             }
             string xlsFile = $@"{Path.GetDirectoryName(args[0])}\{args[1]}";
 
-            checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН-1.tel.xlsx");
+            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН-1.tel.xlsx");
+            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\skip 2430, 2429.new.tel.xls");
+            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Skip Телефоны_2326.2327 .tel.xls");
             //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН.tel.xlsx");
 
         }
@@ -87,14 +89,9 @@ namespace Check
             Verifier verifier = new Verifier(schema, tables);
             dgvTableXls.DataSource = verifier.CheckTable;
 
-            textBox1.Text += "\r\n" + String.Join("\r\n", verifier.report.ToArray());
 
-            textBox1.Clear();
-            textBox1.Text = $"\t{xlsFile} "
-                + "\r\n=============\r\n";
-
-            textBox1.Text += String.Join("\r\n", verifier.report.ToArray());
-
+            string htmlReport = createHtmlReport(xlsFile, verifier);
+            webBrowser1.DocumentText = htmlReport;
             //// ==>
             //tables.t1.WriteXml($@"{Path.GetDirectoryName(xlsFile)}\mytable.xml", XmlWriteMode.IgnoreSchema);
             ////===<
@@ -103,6 +100,33 @@ namespace Check
             SBind.DataSource = tables.t1; 
             dgvTableXls.DataSource = SBind;
 
+        }
+
+        string createHtmlReport(string xlsFile, Verifier verifier)
+        {
+
+            string style =
+                @"
+                    <style>
+                    h1   {background-color: aqua; font-size: 1.2em;}
+                    h2   {background-color: yellow; font-size: 1em;}
+                    </style>
+                 ";
+
+
+            return
+                    $@"
+                    <html>
+                    <head>
+                    {style}
+                    </head>
+                    <body>
+                    <h1>{xlsFile} </h1>
+                    {String.Join("", verifier.report.ToArray())}
+                    </body>
+                    </html>
+                ";
+    
         }
 
         private void textBox2_TextChanged(object sender, EventArgs e)

@@ -136,8 +136,11 @@ namespace Check
                 if ( fields[i].ToString() != String.Empty )
                 {
                     List<string> correctPhones = getPhoneValues(i, fields[i].ToString());
-                    string correctPhonesString = String.Join(",",correctPhones.ToArray());
-                    report += $"[{fields[i].ToString()} -- {correctPhonesString}],";
+                    if (correctPhones.Count > 1)
+                    {
+                        string correctPhonesString = String.Join(", ",correctPhones.ToArray());
+                        report += $"[{fields[i].ToString()} -- {correctPhonesString}],";
+                    }
                     writeFields(i,correctPhones);
                 }
             }

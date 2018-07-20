@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Data;
-
+using System.Text.RegularExpressions;
 
 namespace Check
 {
@@ -27,6 +27,7 @@ namespace Check
 
             if (runMethod(OPEN, ICheckTable.Open))
             {
+                runMethod(IDROWS, inRows);
                 runMethod(PHONE, phone);
                 runMethod(REDEX, redex);
             }
@@ -64,6 +65,7 @@ namespace Check
         const string SELECT = "select";
         const string PHONE = "phone";
         const string REDEX = "regex";
+        const string IDROWS = "idRows";
 
         dynamic schema;
 
@@ -147,13 +149,14 @@ namespace Check
                         }
                         Phone.Fields = fields;
                         Phone.separator = Array.ConvertAll<object, char>((phoneParam["symbols"] as object[]), x => Convert.ToChar(x));
+                        report.Add($"<h2>Phone split</h2>");
                         foreach (DataRow row in ICheckTable.table.Rows)
                         {
                             Phone.currentRow = row;
                             Phone.splitPhones();
                             if (Phone.report != String.Empty)
                             {
-                                report.Add(Phone.report);
+                                report.Add(Phone.report + "<br>");
                             }
                         }
                     } catch(Exception e)
@@ -175,15 +178,94 @@ namespace Check
             {
                 foreach (dynamic jsonObj in regxObjects)
                 {
-                    object[] fields = (((Dictionary<string, object>)jsonObj)["fields"] as object[] );
-                    object[] rules = (((Dictionary<string, object>)jsonObj)["rules"] as object[]);
-                    string[] rulesStr = Array.ConvertAll<object, string>(rules, x => x.ToString());
-                    report.Add($"redex -- {string.Join(",", rules)}");
+                    object[] fieldsJson = (((Dictionary<string, object>)jsonObj)["fields"] as object[] );
+                    object[] isMatchJson = (((Dictionary<string, object>)jsonObj)["IsMatch"] as object[]);
+                    object[] notMatchJson = (((Dictionary<string, object>)jsonObj)["NotMatch"] as object[]);
+                    if ( (fieldsJson.Count() == 0) || (isMatchJson.Count() == 0) ) {
+                        return;
+                    }
+                    List<string> fields = new List<string>();
+                    DataTable table = ICheckTable.table;
+                    foreach (string field in fieldsJson)
+                    {
+                        if (table.Columns.Contains(field))
+                        {
+                            fields.Add(field);
+                        }
+                    }
+
+                    report.Add($"<h2>Redex</h2> <p>isMatch: {string.Join(" ; ", isMatchJson)}, notMatch: {string.Join(" ; ", notMatchJson)}<br>");
+                    report.Add($"fields: {string.Join(";", fields)}</p><hr>");
+
+                    if (fields.Count == 0 ) 
+                    {
+                        return;
+                    }
+
+                    List<RegexInv> match = new List<RegexInv>();
+                    foreach( string rule in isMatchJson )
+                    {
+                        match.Add(new RegexInv(rule,false));
+                    }
+
+                    foreach (string rule in notMatchJson)
+                    {
+                        match.Add(new RegexInv(rule,true));
+                    }
+
+                    for (int rowNumber = 0; rowNumber < table.Rows.Count; rowNumber++)
+                    {
+                        DataRow row = table.Rows[rowNumber];
+                        string rowReport = String.Empty;
+                        foreach (string field in fields)
+                        {
+                            if ((row[field] != DBNull.Value) && (row[field].ToString() != String.Empty))
+                            {
+                                string value = row[field].ToString();
+                                List<RegexInv> errorRules = match.FindAll(x => x.ExMatch(value));
+                                if (errorRules.Count > 0)
+                                {
+                                    string[] errors = Array.ConvertAll<object, string>(errorRules.ToArray(), x => x.ToString());
+                                    rowReport += $"<b>{value}</b> -- {string.Join(", ", errors)}; ";
+                                }
+                            }
+                        }
+                        if (rowReport != string.Empty)
+                        {
+                            report.Add($"# {rowNumber + 2}. {rowReport.Remove(rowReport.Length-2)} <br>");
+                        }
+                    }
+
                 }
             }
             catch (Exception e)
             {
                 report.Add(e.Message);
+            }
+        }
+
+        void inRows(object[] field)
+        {
+            try
+            {
+                if ((field.Count() == 1) && (field[0].ToString() != string.Empty))
+                {
+                    string fieldName = field[0].ToString();
+                    DataTable table = ICheckTable.table;
+                    if (table.Columns.Contains(fieldName)) {
+                        table.Columns.Remove(table.Columns[fieldName]);
+                    }
+                    DataColumn Col = table.Columns.Add(fieldName, typeof(Int32));
+                    Col.SetOrdinal(0);
+                    for (int i = 0; i < table.Rows.Count; i++ )
+                    {
+                        table.Rows[i][fieldName] = i + 2;
+                    }
+                }
+            } 
+            catch (Exception e)
+            {
+                report.Add($"<pre>{e.Message}</pre>");
             }
         }
 
@@ -218,6 +300,27 @@ namespace Check
             }
             return result;
         }
+
+        class RegexInv : Regex
+        {
+            public RegexInv(string expretion, bool inversion) : base(expretion)
+            {
+                this.inversion = inversion;
+            }
+            public bool inversion { get; private set; }
+
+            public bool ExMatch(string value)
+            {
+                return inversion ^ IsMatch(value);
+            }
+
+            public override string ToString()
+            {
+                string prefix = (inversion) ? "(-)" : "";
+                return prefix + base.ToString();
+            }
+
+        };
 
     }
 }
