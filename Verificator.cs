@@ -29,6 +29,7 @@ namespace Check
             {
                 runMethod(IDROWS, inRows);
                 runMethod(PHONE, phone);
+                runMethod(SMS, sms);
                 runMethod(REDEX, redex);
             }
         }
@@ -66,6 +67,7 @@ namespace Check
         const string PHONE = "phone";
         const string REDEX = "regex";
         const string IDROWS = "idRows";
+        const string SMS = "sms";
 
         dynamic schema;
 
@@ -129,23 +131,19 @@ namespace Check
                 {
                     dynamic phoneParam = ((Dictionary<string, object>)jsonObj)["split"];
 
-                    string[] fieldsJson = Array.ConvertAll<object, string>((phoneParam["fields"] as object[]), x => x.ToString());
+                    List<string> fieldsList = getFieldsFromTable(phoneParam, "fieldMask", "fields");
+                    if (fieldsList.Count == 0)
+                    {
+                        return;
+                    }
 
                     try
                     {
-
                         System.Collections.Specialized.OrderedDictionary fields 
                             = new System.Collections.Specialized.OrderedDictionary();
-                        foreach (DataColumn column in ICheckTable.table.Columns)
+                        foreach (string ColumnName in fieldsList)
                         {
-                            if (fieldsJson.Contains(column.ColumnName))
-                            {
-                                fields.Add(column.ColumnName,null);
-                            }
-                        }
-                        if (fields.Count == 0)
-                        {
-                            return;
+                            fields.Add(ColumnName,null);
                         }
                         Phone.Fields = fields;
                         Phone.separator = Array.ConvertAll<object, char>((phoneParam["symbols"] as object[]), x => Convert.ToChar(x));
@@ -167,10 +165,76 @@ namespace Check
                 }
                 catch (Exception e)
                 {
+                    report.Add(e.Message);
                 }
 
             }
 
+        }
+
+        void sms(object[] phoneObjects)
+        {
+            foreach (dynamic jsonObj in phoneObjects)
+            {
+                try
+                {
+                    dynamic phoneParam = ((Dictionary<string, object>)jsonObj)["expand"];
+
+                    List<string> smsPhones = getFieldsFromTable(phoneParam, "smsPhoneMask", string.Empty );
+                    List<string> smsParam = getFieldsFromTable(phoneParam, string.Empty, "fields");
+                    if (smsPhones.Count == 0)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        System.Collections.Specialized.OrderedDictionary fields
+                            = new System.Collections.Specialized.OrderedDictionary();
+                        foreach (string ColumnName in smsPhones)
+                        {
+                            fields.Add(ColumnName, null);
+                        }
+                        report.Add($"<h2>SMS phone split</h2>");
+                        report.Add("<table>");
+                        foreach (DataRow row in ICheckTable.table.Rows)
+                        {
+                            string message = getSmsLine(row,smsPhones,smsParam);
+                            report.Add(message);
+                        }
+                        report.Add("</table>");
+                    }
+                    catch (Exception e)
+                    {
+                        report.Add($"{e} -- {e.Message}");
+                    }
+                    break;
+                }
+                catch (Exception e)
+                {
+                    report.Add(e.Message);
+                }
+
+            }
+
+        }
+
+        string getSmsLine(DataRow row, List<string> smsPhones,List<string> smsParams)
+        {
+            string paramLine = string.Empty;
+            string smsLine = string.Empty;
+            foreach (string param in smsParams)
+            {
+                paramLine += $"<td>{row[param]}</td>";
+            }
+            foreach (string smsNumber in smsPhones)
+            {
+                if ( (row[smsNumber] != DBNull.Value) && (row[smsNumber].ToString().Length>0) )
+                {
+                    smsLine += $"<tr><td>{row[smsNumber]}<td></td>{paramLine}</tr>";
+                }
+            }
+            return smsLine;
         }
 
         void redex(object[] regxObjects) {
@@ -178,24 +242,19 @@ namespace Check
             {
                 foreach (dynamic jsonObj in regxObjects)
                 {
-                    object[] fieldsJson = (((Dictionary<string, object>)jsonObj)["fields"] as object[] );
+
+                    DataTable table = ICheckTable.table;
+
+                    List<string> fields = getFieldsFromTable(jsonObj, "fieldMask", "fields");
+
                     object[] isMatchJson = (((Dictionary<string, object>)jsonObj)["IsMatch"] as object[]);
                     object[] notMatchJson = (((Dictionary<string, object>)jsonObj)["NotMatch"] as object[]);
-                    if ( (fieldsJson.Count() == 0) || (isMatchJson.Count() == 0) ) {
+                    if ( (fields.Count() == 0) || (isMatchJson.Count() == 0) ) {
                         return;
                     }
-                    List<string> fields = new List<string>();
-                    DataTable table = ICheckTable.table;
-                    foreach (string field in fieldsJson)
-                    {
-                        if (table.Columns.Contains(field))
-                        {
-                            fields.Add(field);
-                        }
-                    }
 
-                    report.Add($"<h2>Redex</h2> <p>isMatch: {string.Join(" ; ", isMatchJson)}, notMatch: {string.Join(" ; ", notMatchJson)}<br>");
-                    report.Add($"fields: {string.Join(";", fields)}</p><hr>");
+                    htmlTitle("Redex",fields.ToArray(),
+                        $" isMatch: { string.Join(" ; ", isMatchJson)}, notMatch: { string.Join(" ; ", notMatchJson)}");
 
                     if (fields.Count == 0 ) 
                     {
@@ -244,6 +303,58 @@ namespace Check
             }
         }
 
+        List<string> getFieldsFromTable(dynamic jsonObj, string mask, string names)
+        {
+            List<string> fields = new List<string>();
+            DataTable table = ICheckTable.table;
+            try
+            {
+                if (mask != string.Empty)
+                {
+                    object[] fieldsMaskJson = (((Dictionary<string, object>)jsonObj)[mask] as object[]);
+                    foreach (string field in fieldsMaskJson)
+                    {
+                        foreach (DataColumn column in table.Columns)
+                        {
+                            if (column.ColumnName.Contains(field) && (!field.Contains(column.ColumnName)))
+                            {
+                                fields.Add(column.ColumnName);
+                            }
+                        }
+                    }
+                } 
+                else
+                {
+                    if (names != string.Empty)
+                    {
+                        object[] fieldsJson = (((Dictionary<string, object>)jsonObj)[names] as object[]);
+                        foreach (string field in fieldsJson)
+                        {
+                            if (table.Columns.Contains(field))
+                            {
+                                fields.Add(field);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (KeyNotFoundException e)
+            {
+                if (names != string.Empty)
+                {
+                    object[] fieldsJson = (((Dictionary<string, object>)jsonObj)[names] as object[]);
+                    foreach (string field in fieldsJson)
+                    {
+                        if (table.Columns.Contains(field))
+                        {
+                            fields.Add(field);
+                        }
+                    }
+                }
+            }
+            return fields;
+        }
+
         void inRows(object[] field)
         {
             try
@@ -268,6 +379,13 @@ namespace Check
                 report.Add($"<pre>{e.Message}</pre>");
             }
         }
+
+        void htmlTitle(string name, object[] fields, string comment) {
+            report.Add($"<h2>{name}</h2> <p>{comment}<br>");
+            report.Add($"fields: {string.Join(";", fields)}</p>");
+            report.Add($"<button id =\"redex|{string.Join(";", fields)}\">Copy fields</button><hr>");
+        }
+
 
         bool addFieldsToReport(dynamic rules, int position)
         {

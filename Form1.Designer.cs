@@ -66,12 +66,17 @@
             // 
             // dgvTableXls
             // 
+            this.dgvTableXls.AllowUserToAddRows = false;
+            this.dgvTableXls.AllowUserToDeleteRows = false;
+            this.dgvTableXls.AllowUserToOrderColumns = true;
             this.dgvTableXls.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.dgvTableXls.ClipboardCopyMode = System.Windows.Forms.DataGridViewClipboardCopyMode.EnableWithoutHeaderText;
             this.dgvTableXls.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dgvTableXls.Location = new System.Drawing.Point(0, 0);
             this.dgvTableXls.Name = "dgvTableXls";
+            this.dgvTableXls.RowHeadersVisible = false;
             this.dgvTableXls.Size = new System.Drawing.Size(284, 130);
             this.dgvTableXls.TabIndex = 2;
             this.dgvTableXls.ColumnHeaderMouseClick += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.dgvTableXls_ColumnHeaderMouseClick);
@@ -152,6 +157,7 @@
             this.webBrowser1.Name = "webBrowser1";
             this.webBrowser1.Size = new System.Drawing.Size(284, 200);
             this.webBrowser1.TabIndex = 0;
+            this.webBrowser1.DocumentCompleted += new System.Windows.Forms.WebBrowserDocumentCompletedEventHandler(this.webBrowser1_DocumentCompleted);
             // 
             // Form1
             // 

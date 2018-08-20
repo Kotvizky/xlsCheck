@@ -46,5 +46,29 @@ namespace Check.Properties {
                 this["mainFormSize"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("tel.json")]
+        public string defaultShemaFile {
+            get {
+                return ((string)(this["defaultShemaFile"]));
+            }
+            set {
+                this["defaultShemaFile"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public byte defaultShemaPatch {
+            get {
+                return ((byte)(this["defaultShemaPatch"]));
+            }
+            set {
+                this["defaultShemaPatch"] = value;
+            }
+        }
     }
 }

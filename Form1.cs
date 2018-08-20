@@ -29,12 +29,59 @@ namespace Check
             }
             string xlsFile = $@"{Path.GetDirectoryName(args[0])}\{args[1]}";
 
-            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН-1.tel.xlsx");
+            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН-1.xlsx");
             //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\skip 2430, 2429.new.tel.xls");
             //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Skip Телефоны_2326.2327 .tel.xls");
             //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН.tel.xlsx");
-
         }
+
+        private void webBrowser1_DocumentCompleted(object sender, WebBrowserDocumentCompletedEventArgs e)
+        {
+            this.webBrowser1.Document.Body.MouseDown += new HtmlElementEventHandler(Body_MouseDown);
+        }
+
+        void Body_MouseDown(Object sender, HtmlElementEventArgs e)
+        {
+            switch (e.MouseButtonsPressed)
+            {
+                case MouseButtons.Left:
+                    HtmlElement element = this.webBrowser1.Document.GetElementFromPoint(e.ClientMousePosition);
+                    if (element != null && "button".Equals(element.GetAttribute("type"), StringComparison.OrdinalIgnoreCase))
+                    {
+                        string[] fieldsArray = element.Id.Split('|');
+                        if (fieldsArray.Length > 1)
+                        {
+                            txtColumnFilter.Text = fieldsArray[1];
+                            dgvTableXls_changeColumns(txtColumnFilter.Text);
+                            greedToClipboard();
+                            MessageBox.Show(txtColumnFilter.Text);
+                        }
+                    }
+                    break;
+            }
+        }
+
+        void greedToClipboard()
+        {
+            this.dgvTableXls.ClipboardCopyMode =
+                    DataGridViewClipboardCopyMode.EnableAlwaysIncludeHeaderText;
+            dgvTableXls.SelectAll();
+            if (this.dgvTableXls
+                .GetCellCount(DataGridViewElementStates.Selected) > 0)
+            {
+                try
+                {
+                    // Add the selection to the clipboard.
+                    Clipboard.SetDataObject(
+                        this.dgvTableXls.GetClipboardContent());
+                }
+                catch (System.Runtime.InteropServices.ExternalException)
+                {
+                    MessageBox.Show("The Clipboard could not be accessed. Please try again.");
+                }
+            }
+        }
+
 
         private void fileToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -52,6 +99,10 @@ namespace Check
         void checkFile(string xlsFile)
         {
 
+            string shemaPath =
+                (Properties.Settings.Default.defaultShemaPatch == 0) ? 
+                    Application.StartupPath : Path.GetDirectoryName(xlsFile);
+
             string jsonShortName = Path.GetFileNameWithoutExtension(xlsFile);
 
             if (jsonShortName.LastIndexOf('.') > 0 )
@@ -59,16 +110,26 @@ namespace Check
                 jsonShortName = jsonShortName.Remove(0, jsonShortName.LastIndexOf('.') + 1);
             }
 
-            string jsonFile = $@"{Path.GetDirectoryName(xlsFile)}\{jsonShortName}.json";
+            string jsonFile = $@"{shemaPath}\{jsonShortName}.json";
+
+            string errorMessage = string.Empty;
 
             if (!File.Exists(jsonFile))
             {
-                MessageBox.Show($"File not found : {jsonFile}");
+                errorMessage = $"File not found : {jsonFile}";
+                jsonFile = $"{shemaPath}\\{Properties.Settings.Default.defaultShemaFile}";
+                if (!File.Exists(jsonFile))
+                {
+                    errorMessage += $"\r\nFile not found {jsonFile}";
+                    MessageBox.Show(errorMessage);
+                    return;
+                }
             }
 
             if (!File.Exists(xlsFile))
             {
                 MessageBox.Show($"File not found : {xlsFile}");
+                return;
             }
             string jsonArray = File.ReadAllText(jsonFile);
 
@@ -88,7 +149,6 @@ namespace Check
 
             Verifier verifier = new Verifier(schema, tables);
             dgvTableXls.DataSource = verifier.CheckTable;
-
 
             string htmlReport = createHtmlReport(xlsFile, verifier);
             webBrowser1.DocumentText = htmlReport;
@@ -122,7 +182,7 @@ namespace Check
                     </head>
                     <body>
                     <h1>{xlsFile} </h1>
-                    {String.Join("", verifier.report.ToArray())}
+                    { String.Join("", verifier.report.ToArray())}
                     </body>
                     </html>
                 ";
@@ -236,5 +296,7 @@ namespace Check
             // Save settings
             Settings.Default.Save();
         }
+
+
     }
 }

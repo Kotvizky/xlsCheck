@@ -8,5 +8,11 @@
     <Setting Name="mainFormSize" Type="System.Drawing.Size" Scope="User">
       <Value Profile="(Default)">100, 100</Value>
     </Setting>
+    <Setting Name="defaultShemaFile" Type="System.String" Scope="User">
+      <Value Profile="(Default)">tel.json</Value>
+    </Setting>
+    <Setting Name="defaultShemaPatch" Type="System.Byte" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
