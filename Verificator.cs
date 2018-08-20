@@ -31,6 +31,7 @@ namespace Check
                 runMethod(PHONE, phone);
                 runMethod(SMS, sms);
                 runMethod(REDEX, redex);
+                runMethod(ADDRESS, address);
             }
         }
 
@@ -68,6 +69,7 @@ namespace Check
         const string REDEX = "regex";
         const string IDROWS = "idRows";
         const string SMS = "sms";
+        const string ADDRESS = "address";
 
         dynamic schema;
 
@@ -219,19 +221,36 @@ namespace Check
 
         }
 
+        void address(object[] addressObject)
+        {
+            Address.Init(ICheckTable.table, addressObject);
+
+        }
+
         string getSmsLine(DataRow row, List<string> smsPhones,List<string> smsParams)
         {
             string paramLine = string.Empty;
             string smsLine = string.Empty;
+            Regex regex = new Regex("[0-9]");
             foreach (string param in smsParams)
             {
-                paramLine += $"<td>{row[param]}</td>";
+                string curParam = row[param].ToString();
+                if (regex.IsMatch(curParam))
+                {
+                    curParam = "'" + curParam;
+                }
+                paramLine += $"<td>{curParam}</td>";
             }
             foreach (string smsNumber in smsPhones)
             {
                 if ( (row[smsNumber] != DBNull.Value) && (row[smsNumber].ToString().Length>0) )
                 {
-                    smsLine += $"<tr><td>{row[smsNumber]}<td></td>{paramLine}</tr>";
+                    string curSmsNumber = row[smsNumber].ToString();
+                    if ((curSmsNumber.Length == 11) && (curSmsNumber.Substring(0,2) == "80"))
+                    {
+                        curSmsNumber = "3" + curSmsNumber;
+                    }
+                    smsLine += $"<tr><td>{curSmsNumber}<td></td>{paramLine}</tr>";
                 }
             }
             return smsLine;
