@@ -198,13 +198,15 @@ namespace Check
                             fields.Add(ColumnName, null);
                         }
                         report.Add($"<h2>SMS phone split</h2>");
-                        report.Add("<table>");
+                        //report.Add("<table>");
+                        report.Add("<pre>");
                         foreach (DataRow row in ICheckTable.table.Rows)
                         {
                             string message = getSmsLine(row,smsPhones,smsParam);
                             report.Add(message);
                         }
-                        report.Add("</table>");
+                        //report.Add("</table>");
+                        report.Add("</pre>");
                     }
                     catch (Exception e)
                     {
@@ -235,11 +237,12 @@ namespace Check
             foreach (string param in smsParams)
             {
                 string curParam = row[param].ToString();
-                if (regex.IsMatch(curParam))
-                {
-                    curParam = "'" + curParam;
-                }
-                paramLine += $"<td>{curParam}</td>";
+                //if (regex.IsMatch(curParam))
+                //{
+                //    curParam = "'" + curParam;
+                //}
+                //paramLine += $"<td>{curParam}</td>";
+                paramLine += $"\t{curParam}";
             }
             foreach (string smsNumber in smsPhones)
             {
@@ -250,7 +253,8 @@ namespace Check
                     {
                         curSmsNumber = "3" + curSmsNumber;
                     }
-                    smsLine += $"<tr><td>{curSmsNumber}<td></td>{paramLine}</tr>";
+                    //smsLine += $"<tr><td>{curSmsNumber}{paramLine}</tr>";
+                    smsLine += $"{curSmsNumber}{paramLine}\r\n";
                 }
             }
             return smsLine;
@@ -461,3 +465,4 @@ namespace Check
 
     }
 }
+
