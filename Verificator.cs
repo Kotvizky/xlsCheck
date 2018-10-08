@@ -29,7 +29,7 @@ namespace Check
             {
                 runMethod(IDROWS, inRows);
                 runMethod(PHONE, phone);
-                runMethod(SMS, sms);
+                runMethod(SMS_OBJ, sms);
                 runMethod(REDEX, redex);
                 runMethod(ADDRESS, address);
             }
@@ -53,6 +53,8 @@ namespace Check
 
         ITable ICheckTable;
 
+        public IRulesAction RuleAction { get; private set; }
+
         public DataTable CheckTable
         {
             get
@@ -68,8 +70,9 @@ namespace Check
         const string PHONE = "phone";
         const string REDEX = "regex";
         const string IDROWS = "idRows";
-        const string SMS = "sms";
+        const string SMS_OBJ = "sms";
         const string ADDRESS = "address";
+        const string PHONE_ERRORS = "phone_errors";
 
         dynamic schema;
 
@@ -150,63 +153,22 @@ namespace Check
                         Phone.Fields = fields;
                         Phone.separator = Array.ConvertAll<object, char>((phoneParam["symbols"] as object[]), x => Convert.ToChar(x));
                         report.Add($"<h2>Phone split</h2>");
+                        DataTable table = ICheckTable.table;
+                        DataColumn errorColumn;
+                        errorColumn = (table.Columns.Contains(PHONE_ERRORS)) ?
+                            table.Columns[PHONE_ERRORS] :
+                            ICheckTable.table.Columns.Add(PHONE_ERRORS, typeof(string));
                         foreach (DataRow row in ICheckTable.table.Rows)
                         {
                             Phone.currentRow = row;
                             Phone.splitPhones();
                             if (Phone.report != String.Empty)
                             {
-                                report.Add(Phone.report + "<br>");
+                                row[errorColumn] += Phone.report ;
                             }
                         }
-                    } catch(Exception e)
-                    {
-                        report.Add($"{e} -- {e.Message}");
-                    }
-                    break;
-                }
-                catch (Exception e)
-                {
-                    report.Add(e.Message);
-                }
+                        report.Add($"<h2>Phone split</h2>");
 
-            }
-
-        }
-
-        void sms(object[] phoneObjects)
-        {
-            foreach (dynamic jsonObj in phoneObjects)
-            {
-                try
-                {
-                    dynamic phoneParam = ((Dictionary<string, object>)jsonObj)["expand"];
-
-                    List<string> smsPhones = getFieldsFromTable(phoneParam, "smsPhoneMask", string.Empty );
-                    List<string> smsParam = getFieldsFromTable(phoneParam, string.Empty, "fields");
-                    if (smsPhones.Count == 0)
-                    {
-                        return;
-                    }
-
-                    try
-                    {
-                        System.Collections.Specialized.OrderedDictionary fields
-                            = new System.Collections.Specialized.OrderedDictionary();
-                        foreach (string ColumnName in smsPhones)
-                        {
-                            fields.Add(ColumnName, null);
-                        }
-                        report.Add($"<h2>SMS phone split</h2>");
-                        //report.Add("<table>");
-                        report.Add("<pre>");
-                        foreach (DataRow row in ICheckTable.table.Rows)
-                        {
-                            string message = getSmsLine(row,smsPhones,smsParam);
-                            report.Add(message);
-                        }
-                        //report.Add("</table>");
-                        report.Add("</pre>");
                     }
                     catch (Exception e)
                     {
@@ -219,45 +181,48 @@ namespace Check
                     report.Add(e.Message);
                 }
 
+
+
             }
 
+        }
+
+        void sms(object[] phoneObjects)
+        {
+            foreach (dynamic jsonObj in phoneObjects)
+            {
+                try
+                {
+                    dynamic phoneParam = ((Dictionary<string, object>)jsonObj)["expand"];
+                    bool add_380 = false;
+                    try
+                    {
+                        if ((int)((Dictionary<string, object>)jsonObj)["add_380"] == 1)
+                        {
+                            add_380 = true;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+
+                    }
+                    SMS sms = new SMS(phoneParam, ICheckTable.table, report,add_380);
+                    RuleAction = sms;
+                    sms.fillPhoneLines();
+
+                    break;
+                }
+                catch (Exception e)
+                {
+                    report.Add(e.Message);
+                }
+            }
         }
 
         void address(object[] addressObject)
         {
             Address.Init(ICheckTable.table, addressObject);
 
-        }
-
-        string getSmsLine(DataRow row, List<string> smsPhones,List<string> smsParams)
-        {
-            string paramLine = string.Empty;
-            string smsLine = string.Empty;
-            Regex regex = new Regex("[0-9]");
-            foreach (string param in smsParams)
-            {
-                string curParam = row[param].ToString();
-                //if (regex.IsMatch(curParam))
-                //{
-                //    curParam = "'" + curParam;
-                //}
-                //paramLine += $"<td>{curParam}</td>";
-                paramLine += $"\t{curParam}";
-            }
-            foreach (string smsNumber in smsPhones)
-            {
-                if ( (row[smsNumber] != DBNull.Value) && (row[smsNumber].ToString().Length>0) )
-                {
-                    string curSmsNumber = row[smsNumber].ToString();
-                    if ((curSmsNumber.Length == 11) && (curSmsNumber.Substring(0,2) == "80"))
-                    {
-                        curSmsNumber = "3" + curSmsNumber;
-                    }
-                    //smsLine += $"<tr><td>{curSmsNumber}{paramLine}</tr>";
-                    smsLine += $"{curSmsNumber}{paramLine}\r\n";
-                }
-            }
-            return smsLine;
         }
 
         void redex(object[] regxObjects) {
@@ -276,7 +241,7 @@ namespace Check
                         return;
                     }
 
-                    htmlTitle("Redex",fields.ToArray(),
+                    htmlTitlePhone("Redex",fields.ToArray(),
                         $" isMatch: { string.Join(" ; ", isMatchJson)}, notMatch: { string.Join(" ; ", notMatchJson)}");
 
                     if (fields.Count == 0 ) 
@@ -295,6 +260,11 @@ namespace Check
                         match.Add(new RegexInv(rule,true));
                     }
 
+                    DataColumn errorColumn = (table.Columns.Contains(PHONE_ERRORS)) ?
+                        table.Columns[PHONE_ERRORS] :
+                        ICheckTable.table.Columns.Add(PHONE_ERRORS, typeof(string));
+
+
                     for (int rowNumber = 0; rowNumber < table.Rows.Count; rowNumber++)
                     {
                         DataRow row = table.Rows[rowNumber];
@@ -305,16 +275,19 @@ namespace Check
                             {
                                 string value = row[field].ToString();
                                 List<RegexInv> errorRules = match.FindAll(x => x.ExMatch(value));
+
                                 if (errorRules.Count > 0)
                                 {
                                     string[] errors = Array.ConvertAll<object, string>(errorRules.ToArray(), x => x.ToString());
-                                    rowReport += $"<b>{value}</b> -- {string.Join(", ", errors)}; ";
+                                    //rowReport += $"<b>{value}</b> -- {string.Join(", ", errors)}; ";
+                                    rowReport += $"[{value}] -- {string.Join(", ", errors)}; ";
                                 }
                             }
                         }
                         if (rowReport != string.Empty)
                         {
-                            report.Add($"# {rowNumber + 2}. {rowReport.Remove(rowReport.Length-2)} <br>");
+                            //report.Add($"# {rowNumber + 2}. {rowReport.Remove(rowReport.Length-2)} <br>");
+                            row[errorColumn] =rowReport.Remove(rowReport.Length - 2);
                         }
                     }
 
@@ -403,12 +376,11 @@ namespace Check
             }
         }
 
-        void htmlTitle(string name, object[] fields, string comment) {
+        void htmlTitlePhone(string name, object[] fields, string comment) {
             report.Add($"<h2>{name}</h2> <p>{comment}<br>");
             report.Add($"fields: {string.Join(";", fields)}</p>");
-            report.Add($"<button id =\"redex|{string.Join(";", fields)}\">Copy fields</button><hr>");
+            report.Add($"<button id =\"redex|{string.Join(";", fields)};{PHONE_ERRORS};\">Copy fields</button><hr>");
         }
-
 
         bool addFieldsToReport(dynamic rules, int position)
         {

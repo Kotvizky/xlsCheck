@@ -61,13 +61,25 @@ namespace Check.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
         public byte defaultShemaPatch {
             get {
                 return ((byte)(this["defaultShemaPatch"]));
             }
             set {
                 this["defaultShemaPatch"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Instruction")]
+        public string InstructionFolder {
+            get {
+                return ((string)(this["InstructionFolder"]));
+            }
+            set {
+                this["InstructionFolder"] = value;
             }
         }
     }

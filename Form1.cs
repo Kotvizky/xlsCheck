@@ -18,6 +18,8 @@ namespace Check
 
         ReadXls tables;
 
+        Verifier verifier;
+
         public Form1()
         {
             InitializeComponent();
@@ -28,19 +30,32 @@ namespace Check
                 return;
             }
             string xlsFile = $@"{Path.GetDirectoryName(args[0])}\{args[1]}";
+            ReadXls.onSheetChoise += this.getXlsSheet;
+            loadInstruction = new LoadInstruction(this);
+        }
 
-            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН-1.xlsx");
-            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\skip 2430, 2429.new.tel.xls");
-            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Skip Телефоны_2326.2327 .tel.xls");
-            //checkFile("C:\\Users\\IKotvytskyi\\Documents\\Visual Studio 2015\\checkReestr\\Check\\Check\\bin\\Release\\Форум_ Додаток 3 _СМАРТ КОЛЛЕКШН.tel.xlsx");
+        LoadInstruction loadInstruction;
+
+        public string getXlsSheet(object[] sheetList)
+        {
+            DialogSheets form = new DialogSheets(sheetList);
+            form.StartPosition = FormStartPosition.CenterParent;
+            form.ShowDialog();
+            string choosenSheet = form.sheet;
+            if (choosenSheet == null)
+            {
+                choosenSheet = sheetList[0].ToString();
+            }
+            form.Dispose();
+            return choosenSheet;
         }
 
         private void webBrowser1_DocumentCompleted(object sender, WebBrowserDocumentCompletedEventArgs e)
         {
-            this.webBrowser1.Document.Body.MouseDown += new HtmlElementEventHandler(Body_MouseDown);
+            this.webBrowser1.Document.Body.MouseDown += new HtmlElementEventHandler(Body_MouseDown_Click);
         }
 
-        void Body_MouseDown(Object sender, HtmlElementEventArgs e)
+        void Body_MouseDown_Click(Object sender, HtmlElementEventArgs e)
         {
             switch (e.MouseButtonsPressed)
             {
@@ -48,13 +63,20 @@ namespace Check
                     HtmlElement element = this.webBrowser1.Document.GetElementFromPoint(e.ClientMousePosition);
                     if (element != null && "button".Equals(element.GetAttribute("type"), StringComparison.OrdinalIgnoreCase))
                     {
-                        string[] fieldsArray = element.Id.Split('|');
-                        if (fieldsArray.Length > 1)
+                        if (element.Id == SMS.SMS_BUTTON_ID)
                         {
-                            txtColumnFilter.Text = fieldsArray[1];
-                            dgvTableXls_changeColumns(txtColumnFilter.Text);
-                            greedToClipboard();
-                            MessageBox.Show(txtColumnFilter.Text);
+                            verifier.RuleAction.Execute();
+                        }
+                        else
+                        {
+                            string[] fieldsArray = element.Id.Split('|');
+                            if (fieldsArray.Length > 1)
+                            {
+                                txtColumnFilter.Text = fieldsArray[1];
+                                dgvTableXls_changeColumns(txtColumnFilter.Text);
+                                greedToClipboard();
+                                MessageBox.Show(txtColumnFilter.Text);
+                            }
                         }
                     }
                     break;
@@ -82,7 +104,6 @@ namespace Check
             }
         }
 
-
         private void fileToolStripMenuItem_Click(object sender, EventArgs e)
         {
             OpenFileDialog openFileDialog1 = new OpenFileDialog();
@@ -92,45 +113,23 @@ namespace Check
             if (openFileDialog1.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 string fileName = openFileDialog1.FileName;
-                checkFile(fileName);
+                tables = new ReadXls(fileName);
+                webBrowser1.DocumentText = $"<table><tr><td>file name:</td><td>{fileName}</td></tr><tr><td>sheet:</td><td>{tables.T1NAME}</td></tr><table>";
+                instructionsToolStripMenuItem.Enabled = true;
             }
         }
 
-        void checkFile(string xlsFile)
+        void checkFile(string jsonFile)
         {
-
-            string shemaPath =
-                (Properties.Settings.Default.defaultShemaPatch == 0) ? 
-                    Application.StartupPath : Path.GetDirectoryName(xlsFile);
-
-            string jsonShortName = Path.GetFileNameWithoutExtension(xlsFile);
-
-            if (jsonShortName.LastIndexOf('.') > 0 )
-            {
-                jsonShortName = jsonShortName.Remove(0, jsonShortName.LastIndexOf('.') + 1);
-            }
-
-            string jsonFile = $@"{shemaPath}\{jsonShortName}.json";
-
-            string errorMessage = string.Empty;
 
             if (!File.Exists(jsonFile))
             {
-                errorMessage = $"File not found : {jsonFile}";
-                jsonFile = $"{shemaPath}\\{Properties.Settings.Default.defaultShemaFile}";
-                if (!File.Exists(jsonFile))
-                {
-                    errorMessage += $"\r\nFile not found {jsonFile}";
-                    MessageBox.Show(errorMessage);
-                    return;
-                }
-            }
-
-            if (!File.Exists(xlsFile))
-            {
-                MessageBox.Show($"File not found : {xlsFile}");
+                string errorMessage = $"\r\nFile not found {jsonFile}";
+                MessageBox.Show(errorMessage);
                 return;
             }
+
+
             string jsonArray = File.ReadAllText(jsonFile);
 
             var serializer = new JavaScriptSerializer();
@@ -145,24 +144,17 @@ namespace Check
                 return;
             }
 
-            tables = new ReadXls(xlsFile);
-
-            Verifier verifier = new Verifier(schema, tables);
+            verifier = new Verifier(schema, tables);
             dgvTableXls.DataSource = verifier.CheckTable;
 
-            string htmlReport = createHtmlReport(xlsFile, verifier);
+            string htmlReport = createHtmlReport(tables.FileName);
             webBrowser1.DocumentText = htmlReport;
-            //// ==>
-            //tables.t1.WriteXml($@"{Path.GetDirectoryName(xlsFile)}\mytable.xml", XmlWriteMode.IgnoreSchema);
-            ////===<
-
             BindingSource SBind = new BindingSource();
             SBind.DataSource = tables.t1; 
             dgvTableXls.DataSource = SBind;
-
         }
 
-        string createHtmlReport(string xlsFile, Verifier verifier)
+        string createHtmlReport(string xlsFile)
         {
 
             string style =
@@ -234,7 +226,7 @@ namespace Check
             }
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void whereButton_Click(object sender, EventArgs e)
         {
             if (dgvTableXls.DataSource == null) return;
             try
@@ -297,6 +289,64 @@ namespace Check
             Settings.Default.Save();
         }
 
+        private void instructionsToolStripMenuItem_DropDownOpening(object sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem) {
+                loadInstruction.updateInsrtuction((ToolStripMenuItem)sender);
+            }
+        }
+
+        class LoadInstruction
+        {
+            public LoadInstruction(Form1 parent)
+            {
+                this.parent = parent;
+                instructionFolder = $@"{Application.StartupPath}\{Properties.Settings.Default.InstructionFolder}";
+            }
+
+            public string instructionFolder { get; private set; }
+
+            public string getFullName(string fileName)
+            {
+                return $"{instructionFolder}\\{fileName}";
+            }
+
+            Form1 parent;
+
+            public void updateInsrtuction(ToolStripMenuItem menu)
+            {
+                menu.DropDownItems.Clear();
+                addInstructionToMenu(menu
+                    , getInsruction());
+            }
+
+            void addInstructionToMenu(ToolStripMenuItem parentMenu, string[] subMenuStrings)
+            {
+                foreach (string menu in subMenuStrings)
+                {
+                    parentMenu.DropDownItems.Add(Path.GetFileName(menu), null, instructionsMenuLoad_Click);
+                }
+            }
+
+            string[] getInsruction()
+            {
+                if (Directory.Exists(instructionFolder))
+                {
+                    return Directory.GetFiles(instructionFolder, "*.json");
+                }
+                return new string[0];
+            }
+
+            private void instructionsMenuLoad_Click(object sender, EventArgs e)
+            {
+                if (sender is ToolStripMenuItem)
+                {
+                    ToolStripMenuItem menu = (ToolStripMenuItem)sender;
+                    parent.checkFile(getFullName(menu.Text));
+                }
+            }
+
+        }
 
     }
 }
