@@ -54,7 +54,7 @@ namespace Check
                 {
                     if (sheetRows.Length == 1)
                     {
-                        string sheetName = sheetRows[0]["TABLE_NAME"].ToString();
+                        T1NAME = sheetRows[0]["TABLE_NAME"].ToString();
                     }
                     else
                     {
@@ -63,33 +63,14 @@ namespace Check
                             object[] sheetList = new object[sheetRows.Length];
                             for (int i = 0; i < sheetRows.Length; i++)
                             {
-                                T1NAME = sheetRows[i]["TABLE_NAME"].ToString();
-                                sheetList[i] = T1NAME.Substring(0, T1NAME.Length - 1);
+                                sheetList[i] = sheetRows[i]["TABLE_NAME"].ToString();
                             }
-                            prepareSheetNames(sheetList);
                             T1NAME = onSheetChoise(sheetList);
                         }
                     }
                 }
             }
         }
-
-        void prepareSheetNames(object[] names)
-        {
-            for (int i = 0; i < names.Length; i++)
-            {
-                string sheet = names[i].ToString();
-                if (sheet[0] == '\'' )
-                {
-                    names[i] = $@"{sheet}'";
-                }
-                else
-                {
-                    names[i] = $"{sheet}$";
-                }
-            }
-        }
-
 
         private string GetConnectionString()
         {
@@ -189,7 +170,6 @@ namespace Check
                 }
                 throw;
             }
-
         }
 
         public string[] Select(object[] filter, object[] fields = null)
