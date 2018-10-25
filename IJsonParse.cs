@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 
 namespace Check
 {
-    interface IRulesAction
+    interface IJsonParser
     {
-        void Execute();
-
+        dynamic getParam(string paramName, out Exception exc);
     }
 }

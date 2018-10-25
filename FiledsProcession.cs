@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 
 namespace Check
 {
-    interface IRulesAction
+    interface IFiledsProcession
     {
-        void Execute();
-
+        void setValues(string[] values, Fields fields);
     }
 }

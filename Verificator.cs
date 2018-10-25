@@ -25,13 +25,16 @@ namespace Check
                 runMethod(SELECT, select);
             }
 
+
             if (runMethod(OPEN, ICheckTable.Open))
             {
                 runMethod(IDROWS, inRows);
                 runMethod(PHONE, phone);
                 runMethod(SMS_OBJ, sms);
+                runMethod(REPLACE_REGEX, replaceRegex);
                 runMethod(REDEX, redex);
                 runMethod(ADDRESS, address);
+                runMethod(PROPERTY, property);
             }
         }
 
@@ -72,6 +75,9 @@ namespace Check
         const string IDROWS = "idRows";
         const string SMS_OBJ = "sms";
         const string ADDRESS = "address";
+        const string PROPERTY = "property";
+        const string REPLACE_REGEX = "replace regex";
+
         const string PHONE_ERRORS = "phone_errors";
 
         dynamic schema;
@@ -138,9 +144,7 @@ namespace Check
 
                     List<string> fieldsList = getFieldsFromTable(phoneParam, "fieldMask", "fields");
                     if (fieldsList.Count == 0)
-                    {
                         return;
-                    }
 
                     try
                     {
@@ -151,6 +155,7 @@ namespace Check
                             fields.Add(ColumnName,null);
                         }
                         Phone.Fields = fields;
+                        Phone.extraFieldsCount = 0;
                         Phone.separator = Array.ConvertAll<object, char>((phoneParam["symbols"] as object[]), x => Convert.ToChar(x));
                         report.Add($"<h2>Phone split</h2>");
                         DataTable table = ICheckTable.table;
@@ -167,8 +172,8 @@ namespace Check
                                 row[errorColumn] += Phone.report ;
                             }
                         }
+                        Phone.placeFieldToEnd(table,PHONE_ERRORS);
                         report.Add($"<h2>Phone split</h2>");
-
                     }
                     catch (Exception e)
                     {
@@ -180,11 +185,7 @@ namespace Check
                 {
                     report.Add(e.Message);
                 }
-
-
-
             }
-
         }
 
         void sms(object[] phoneObjects)
@@ -222,6 +223,72 @@ namespace Check
         void address(object[] addressObject)
         {
             Address.Init(ICheckTable.table, addressObject);
+
+        }
+
+        void property(object[] propertyObjects)
+        {
+            Property property = new Property(ICheckTable.table, propertyObjects);
+
+        }
+
+
+
+        void replaceRegex(object[] regxObjects)
+        {
+
+            List<string> fields = getFieldsFromTable(regxObjects[0], "fieldMask", "fields");
+
+            object[] replacements = null;
+
+            try
+            {
+                replacements = (((Dictionary<string, object>)regxObjects[0])["rules"] as object[]);
+            }                
+            catch (KeyNotFoundException e)
+            {
+            }
+
+            if ((fields.Count == 0) || (replacements == null))
+                return;
+
+            List<ReplaceRegex> replaceRegList = new List<ReplaceRegex>();
+
+            for (int i = 0; i < replacements.Length; i++)
+            {
+                if ((replacements[i] is object[]) && ((replacements[i] as object[]).Length == 3) ) {
+                    string[] replaceParameters = Array.ConvertAll<object, string>((object[])replacements[i], x =>x.ToString());
+                    replaceRegList.Add(new ReplaceRegex(replaceParameters));
+                }
+            }
+
+            if (replaceRegList.Count == 0)
+                return;
+
+            report.Add($"<h2>{REPLACE_REGEX}</h2>");
+            foreach (ReplaceRegex replaceRegex in replaceRegList)
+            {
+                report.Add($"<b>{replaceRegex.getParameters()}</b></br>");
+            }
+            report.Add($"</br>");
+
+            foreach (DataRow row in ICheckTable.table.Rows)
+            {
+                foreach (string fieldName in fields)
+                {
+                    if ((row[fieldName] != DBNull.Value) && row[fieldName].ToString().Length > 0) {
+                        string newValue = row[fieldName].ToString();
+                        string oldValue = newValue;
+                        foreach (ReplaceRegex replaceReg in replaceRegList)
+                        {
+                            newValue = replaceReg.Replace(newValue);
+                        }
+                        row[fieldName] = newValue;
+                        if (oldValue != newValue)
+                            report.Add($"{oldValue} -> {newValue} <br>");
+                    }
+                }
+            }
 
         }
 
@@ -280,7 +347,7 @@ namespace Check
                                 {
                                     string[] errors = Array.ConvertAll<object, string>(errorRules.ToArray(), x => x.ToString());
                                     //rowReport += $"<b>{value}</b> -- {string.Join(", ", errors)}; ";
-                                    rowReport += $"[{value}] -- {string.Join(", ", errors)}; ";
+                                    rowReport += $"[{value}] -- {string.Join(", ", errors)}\t\t";
                                 }
                             }
                         }
@@ -303,9 +370,9 @@ namespace Check
         {
             List<string> fields = new List<string>();
             DataTable table = ICheckTable.table;
-            try
+            if (mask != string.Empty)
             {
-                if (mask != string.Empty)
+                try
                 {
                     object[] fieldsMaskJson = (((Dictionary<string, object>)jsonObj)[mask] as object[]);
                     foreach (string field in fieldsMaskJson)
@@ -313,40 +380,21 @@ namespace Check
                         foreach (DataColumn column in table.Columns)
                         {
                             if (column.ColumnName.Contains(field) && (!field.Contains(column.ColumnName)))
-                            {
                                 fields.Add(column.ColumnName);
-                            }
-                        }
-                    }
-                } 
-                else
-                {
-                    if (names != string.Empty)
-                    {
-                        object[] fieldsJson = (((Dictionary<string, object>)jsonObj)[names] as object[]);
-                        foreach (string field in fieldsJson)
-                        {
-                            if (table.Columns.Contains(field))
-                            {
-                                fields.Add(field);
-                            }
                         }
                     }
                 }
+                catch (KeyNotFoundException e) {}
             }
-            catch (KeyNotFoundException e)
+            if (names != string.Empty)
             {
-                if (names != string.Empty)
+                try
                 {
                     object[] fieldsJson = (((Dictionary<string, object>)jsonObj)[names] as object[]);
                     foreach (string field in fieldsJson)
-                    {
-                        if (table.Columns.Contains(field))
-                        {
-                            fields.Add(field);
-                        }
-                    }
+                        if (table.Columns.Contains(field)) fields.Add(field);
                 }
+                catch (KeyNotFoundException e) { }
             }
             return fields;
         }
@@ -434,6 +482,46 @@ namespace Check
             }
 
         };
+
+        /// <summary>
+        /// searchPattern = param[0]
+        /// replacePattern = param[0]
+        /// newValue = param[0]
+        /// </summary>
+        class ReplaceRegex {
+            public ReplaceRegex(string[] param)
+            {
+                evaluator = new MatchEvaluator(replaceInPattern);
+                this.searchPattern = param[0];
+                this.replacePattern = param[1];
+                this.newValue = param[2];
+            }
+
+            public string Replace(string search)
+            {
+                return Regex.Replace(search, searchPattern, 
+                                evaluator,RegexOptions.IgnorePatternWhitespace);
+            }
+
+            string searchPattern;
+            string replacePattern;
+            string newValue;
+
+            MatchEvaluator evaluator;
+
+            string replaceInPattern(Match match)
+            {
+                string res = Regex.Replace(match.Value, replacePattern, newValue);
+
+                return res;
+            }
+
+            public string getParameters()
+            {
+                return $"[{searchPattern}], [{replacePattern}], [{newValue}]";
+            }
+
+        }
 
     }
 }

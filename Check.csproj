@@ -69,8 +69,14 @@
     <Compile Include="DialogSheets.designer.cs">
       <DependentUpon>DialogSheets.cs</DependentUpon>
     </Compile>
+    <Compile Include="Field.cs" />
+    <Compile Include="Fields.cs" />
+    <Compile Include="FiledsProcession.cs" />
+    <Compile Include="IJsonParse.cs" />
     <Compile Include="ITable.cs" />
+    <Compile Include="JsonParser.cs" />
     <Compile Include="Phone.cs" />
+    <Compile Include="Property.cs" />
     <Compile Include="RulesAction.cs" />
     <Compile Include="SMS.cs" />
     <Compile Include="Verificator.cs" />

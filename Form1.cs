@@ -24,12 +24,6 @@ namespace Check
         {
             InitializeComponent();
             string[] args = Environment.GetCommandLineArgs();
-            if (args.Length < 2)
-            {
-                //MessageBox.Show("Not enough parameters!");
-                return;
-            }
-            string xlsFile = $@"{Path.GetDirectoryName(args[0])}\{args[1]}";
             ReadXls.onSheetChoise += this.getXlsSheet;
             loadInstruction = new LoadInstruction(this);
         }
@@ -116,6 +110,7 @@ namespace Check
                 tables = new ReadXls(fileName);
                 webBrowser1.DocumentText = $"<table><tr><td>file name:</td><td>{fileName}</td></tr><tr><td>sheet:</td><td>{tables.T1NAME}</td></tr><table>";
                 instructionsToolStripMenuItem.Enabled = true;
+                dgvTableXls.DataSource = null;
             }
         }
 
@@ -205,7 +200,7 @@ namespace Check
                     {
                         if (str.Trim()=="")
                         {
-                            break;
+                            continue;
                         }
                         if (col.Name.ToLower().Contains(str.ToLower()))
                         {
@@ -241,8 +236,10 @@ namespace Check
                 }
                 else throw;
             }
-
         }
+
+
+
 
         private void dgvTableXls_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
         {
@@ -345,7 +342,6 @@ namespace Check
                     parent.checkFile(getFullName(menu.Text));
                 }
             }
-
         }
 
     }

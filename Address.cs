@@ -12,7 +12,7 @@ namespace Check
     {
         public static void Init(DataTable addressTable, object[] _initObject)
         {
-            bool fieldsFlag = false;
+
             table = addressTable;
             initObject = _initObject;
             Exception exc;
@@ -26,7 +26,7 @@ namespace Check
             }
             if ((phoneParam is object[]) && (parsing is Dictionary<string,object>))
             {
-                fields = new Fields(fieldNames, parsing);
+                fields = new Fields(fieldNames, parsing, new AddressFiledsProcession());
             }
 
             dynamic addressName = getParam("address string", out exc);
@@ -50,7 +50,7 @@ namespace Check
             if (replaceRegExParam is object[])
             {
                 replaceRegExStrings = (object[])replaceRegExParam;
-                replaceRegExinAddress();
+                replaceRegExInAddress();
             }
 
             split(getParam("split separators", out exc));
@@ -138,7 +138,7 @@ namespace Check
             }
         }
 
-        static void replaceRegExinAddress()
+        static void replaceRegExInAddress()
         {
             if ((addressStringField == string.Empty) || (replaceRegExStrings == null)
                 || (!table.Columns[addressStringField].DataType.Equals(typeof(String))))
@@ -190,139 +190,55 @@ namespace Check
             {
                 if (row[addressStringField] != DBNull.Value)
                 {
-                    //TODO split
                     string[] values = row[addressStringField].ToString().Split(
                             chars, fieldNames.Length, StringSplitOptions.RemoveEmptyEntries);
 
                     fields.addressToRow(row,values);
 
-                    //int diff = fieldNames.Length - values.Length;
-                    //for (int i = 0 ; i < values.Length ; i++) {
-                    //    row[fieldNames[diff+i]] = values[i];
-                    //}
                 }
             }
         }
 
         static DataTable table;
-    }
 
-    class Fields: List<Field>
-    {
-        public Fields(string[] fieldNames, Dictionary<string, object> parsing)
+        class AddressFiledsProcession : IFiledsProcession
         {
-            foreach (string fieldName in fieldNames)
+            public void setValues(string[] values, Fields fields)
             {
-                this.Add(new Field() { name = fieldName });
-            }
-            foreach (KeyValuePair<string, object> rule in parsing)
-            {
-                Field field = this.Find(x => x.name == rule.Key);
-                if (field != null)
+                for (int i = values.Length - 1; i >= 0; i--)
                 {
-                    field.regRuls = Array.ConvertAll((object[])rule.Value, x => x.ToString());
-                }
-            }
-        }
-
-        public void addressToRow(DataRow row, string[] values)
-        {
-            clearValues();
-            initFields(values);
-            writeFields(row);
-        }
-
-        public void clearValues()
-        {
-            foreach (Field field in this)
-            {
-                field.value = String.Empty;
-            }
-        }
-
-        void initFields(string[] values)
-        {
-
-            for (int i = values.Length - 1; i >= 0; i--)
-            {
-                foreach (Field field in this)
-                {
-                    if (!field.isSet)
+                    foreach (Field field in fields)
                     {
-                        if (field.setWithCheck(values[i]))
+                        if (!field.isSet)
                         {
-                            values[i] = string.Empty;
-                            break;
+                            if (field.setWithCheck(values[i]))
+                            {
+                                values[i] = string.Empty;
+                                break;
+                            }
                         }
                     }
                 }
-            }
-            for (int valNumer = values.Length - 1; valNumer >= 0; valNumer--)
-            {
-                if ((values[valNumer] == string.Empty) || (values[valNumer].Trim() == ""))
+
+                for (int valNumer = values.Length - 1; valNumer >= 0; valNumer--)
                 {
-                    continue;
-                }
-                for (int fieldNum = this.Count - 3; fieldNum >= 0; fieldNum--) // building and appartment
-                {
-                    if (!this[fieldNum].isSet)
+                    if ((values[valNumer] == string.Empty) || (values[valNumer].Trim() == ""))
                     {
-                        this[fieldNum].value = values[valNumer];
-                        values[valNumer] = string.Empty;
                         continue;
                     }
-                }
+                    for (int fieldNum = fields.Count - 3; fieldNum >= 0; fieldNum--) // building and appartment
+                    {
+                        if (!fields[fieldNum].isSet)
+                        {
+                            fields[fieldNum].value = values[valNumer];
+                            values[valNumer] = string.Empty;
+                            continue;
+                        }
+                    }
 
-            }
-        }
-
-         void writeFields(DataRow row)
-        {
-            foreach (Field field in this)
-            {
-                if (row.Table.Columns.Contains(field.name))
-                {
-                    row[field.name] = field.value;
                 }
             }
         }
-
-
-
-    }
-
-    class Field {
-        public string name;
-
-        public string value = String.Empty;
-
-        public bool setWithCheck(string addressPart)
-        {
-            if (isSet)
-            {
-                return false;
-            }
-            foreach (string rule in regRuls)
-            {
-                Regex rx = new Regex(rule);
-                if (rx.IsMatch(addressPart))
-                {
-                    value = addressPart;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        public bool isSet
-        {
-            get
-            {
-                return (value != string.Empty);
-            }
-        }
-
-        public string[] regRuls = new string[] {};
 
     }
 

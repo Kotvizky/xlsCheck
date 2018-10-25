@@ -139,7 +139,7 @@ namespace Check
                     if (correctPhones.Count > 1)
                     {
                         string correctPhonesString = String.Join(", ",correctPhones.ToArray());
-                        report += $"[{fields[i].ToString()} -- {correctPhonesString}],";
+                        //report += $"[{fields[i].ToString()} -- {correctPhonesString}],";
                     }
                     writeFields(i,correctPhones);
                 }
@@ -147,14 +147,14 @@ namespace Check
             fillRow();
         }
 
-        static void writeFields(int index, List<string> correctPhones)
+        static void writeFields(int index, List<string> correctPhones, int listIndex = 0, bool lastCall = false)
         {
             if (correctPhones.Count == 0)
             {
                 return;
             }
-            int listIndex = 0;
-            string sourceNumber = fields[index].ToString();
+            
+
             for (int i = index; i < fields.Count ; i++)
             {
                 if((i > index) && (fields[i].ToString() != String.Empty))
@@ -167,15 +167,31 @@ namespace Check
                 }
                 fields[i] = correctPhones[listIndex++];
             }
-            string extraNumberts = String.Empty;
-            while (listIndex < correctPhones.Count)
+
+            if ((listIndex < correctPhones.Count) && (!lastCall))
             {
-                extraNumberts += $"{correctPhones[listIndex++]},";
+                index = fields.Count;
+                addExtraFields(correctPhones.Count - listIndex);
+                writeFields(index, correctPhones, listIndex, true);
             }
-            if (extraNumberts != String.Empty)
-            {
-                report += $"[*del*{sourceNumber} -- {extraNumberts}]";
+
+        }
+
+        public static int extraFieldsCount;
+
+        public const string EXTRA_FIELD_NAME = "extra_field#";
+
+        private static void addExtraFields(int colFields)
+        {
+            DataTable table = currentRow.Table;
+            for (int i = 0; i < colFields; i++) {
+                string fieldName = $"{ EXTRA_FIELD_NAME }{extraFieldsCount + i}";
+                table.Columns.Add(fieldName, typeof(String));
+                fields.Add(fieldName, String.Empty);
             }
+            extraFieldsCount += colFields;
+            fieldsKey = new object[fields.Count];
+            fields.Keys.CopyTo(fieldsKey, 0);
         }
 
         static List<string> getPhoneValues(int index, string value)
@@ -191,12 +207,14 @@ namespace Check
 
         static void getPhoneFromString(string numbers, List<string> correctPhones)
         {
+            correctPhones.Add(new String(numbers.Where(Char.IsDigit).ToArray()));
+            /*
             string number = new String(numbers.Where(Char.IsDigit).ToArray());
-            //Regex.Match(numbers, @"\d+").Value;
-            if (number != String.Empty)
+            if ((number != String.Empty))
             {
                 correctPhones.Add(number);
             }
+            */
         }
 
         static string correctNumber(string number)
@@ -223,11 +241,23 @@ namespace Check
             return number;
         }
 
+        public static void placeFieldToEnd(DataTable table,string name)
+        {
+
+            DataColumnCollection columns = table.Columns;
+            if (columns.Contains(name))
+            {
+                int fieldPosition = columns[name].Ordinal;
+                foreach (string curField in fieldsKey)
+                {
+                    if (fieldPosition < columns[curField].Ordinal)
+                        fieldPosition = columns[curField].Ordinal;
+                }
+                if (fieldPosition > columns[name].Ordinal)
+                    columns[name].SetOrdinal(fieldPosition);
+            }
+        }
 
     }
-
-    //TODO fill all cell from current
-    //TODO Procedure to fill: 
-    //TODO 1. 
 
 }
